@@ -1,0 +1,88 @@
+{
+  "name": "maven-pom-java-spring",
+  "dockerComposeFile": [
+    "./docker-compose.yml"
+  ],
+  "service": "devcontainer",
+  "runServices": [
+    "devcontainer"
+  ],
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "ritwickdey.LiveServer",
+        "MS-vsliveshare.vsliveshare",
+        "SonarSource.sonarlint-vscode",
+        "ms-azuretools.vscode-docker",
+        "mushan.vscode-paste-image",
+        "chekweitan.compare-view",
+        "hanskre.markdown-execute",
+        "vscjava.vscode-java-pack",
+        "formulahendry.docker-explorer",
+        "redhat.vscode-xml",
+        "seanmcshane.jar-viewer-and-decompiler"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "xml.java.home": "/usr/lib/jvm/jdk-17.0.12-oracle-x64",
+        "[xml]":{
+          "editor.defaultFormatter": "redhat.vscode-xml"
+        },
+        "sonarlint.ls.javaHome": "/usr/lib/jvm/jdk-17.0.12-oracle-x64",
+        // To analyze JavaScript, TypeScript, or CSS code, SonarQube for VS Code requires Node.js executable.
+        "sonarlint.pathToNodeExecutable": "/usr/local/bin/node",
+        // To analyze JavaScript, TypeScript, or CSS code, SonarLint for VS Code requires Node.js executable.
+        // src dışındaki tüm dosyaları hariç tutar
+        "sonarlint.analysisExcludesStandalone": "**/node_modules/**,**/.env,**/dist/**,**/tests/**,**/*.*",
+        "sonarlint.analyzerProperties": {
+          "sonar.sources": "src"
+        },
+        "sonarlint.trace.server": "off",
+        "sonarlint.output.showVerboseLogs": false,
+        "sonarlint.output.showAnalyzerLogs": false,
+        "sonarlint.connectedMode.connections.sonarqube": [
+          {
+            "serverUrl": "https://sonar.telenity.com",
+            "connectionId": "sonar_telenity",
+            "disableNotifications": false
+          }
+        ],
+        "sonarlint.connectedMode.project": {
+          "projectKey": "newcode-ts",
+          "connectionId": "sonar_cosonar_telenityntainer"
+        }
+      }
+    }
+  },
+  // "remoteUser": "node", // VS Code'un konteynerde hangi kullanıcıyla çalışacağını belirtir
+  // "remoteUserUID": 502, // Konteynerdeki kullanıcı UID'sini hosttaki UID ile eşleştirir
+  // "remoteUserGID": 20,  // Konteynerdeki grup GID'sini hosttaki GID ile eşleştirir
+  // "containerUser": "node", // Konteynerde çalışacak ana kullanıcı
+  // "containerGroup": "node", // Konteynerde çalışacak ana grup
+  // "mountOptions": [
+  //   "uid=502", // Mount edilen dosyaların konteynerde hangi UID ile görüneceğini belirtir
+  //   "gid=20"   // Mount edilen dosyaların konteynerde hangi GID ile görüneceğini belirtir
+  // ],
+  
+  // Konteynerde çalışacak ana kullanıcı
+  // "containerUser": "coeadmin",
+  // VS Code'un konteynerde hangi kullanıcıyla çalışacağını belirtir
+  // "remoteUser": "node",
+  "overrideCommand": false,
+  "remoteUser": "root",
+  // "postCreateCommand": "npm install",
+  // npm create vite@latest react-ts-tdd -- --template react-ts
+  // npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom @types/jsdom
+  // Forwards port 5173 for Vite development server.
+  "forwardPorts": [
+    5173
+  ]
+  // ,"initializeCommand": "pwd && ls -al"
+  // ,"initializeCommand": "cd .devcontainer && ./devcontainer_scripts.sh --phase=initialize"
+  // ,"postStartCommand": "cd .devcontainer && ./devcontainer_scripts.sh --phase=postStart"
+  // ,"postCreateCommand": "cd .devcontainer && ./devcontainer_scripts.sh --phase=postCreate"
+  // ,"postCreateCommand": "cd .devcontainer && ./postCreate.sh"
+}

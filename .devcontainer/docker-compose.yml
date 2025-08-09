@@ -1,0 +1,22 @@
+# This file is used to define the services and networks for the development environment.
+x-common-env: &common-variables
+  # Containers will be setted to the same time zone as the host
+  TZ: "Europe/Istanbul"
+
+services:
+  devcontainer:
+    container_name: devcontainer
+    image: maven3-j17-spring-cli:redhat
+    build:
+      context: ./services/devcontainer/build
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -native sleep infinity
+    environment:
+      <<: *common-variables
+      PYTHONPATH: '/workspace'
+    # networks:
+    #   - devnet
+

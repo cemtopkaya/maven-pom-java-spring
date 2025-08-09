@@ -1,0 +1,164 @@
+ARG CANVAS_BASE_IMAGE_VERSION=latest
+
+# start from base Canvas docker image 
+FROM --platform=linux/amd64 nexus.telenity.com/com/telenity/noncanvas/docker:3.0.1 as com.telenity.ngeqm.docker
+
+
+# FROM nexus.telenity.com/com/telenity/canvas/docker:latest
+
+# start from base Canvas docker image 
+#FROM canvas-base as apimanager-all
+
+# will be overriden with --build-arg during docker build
+ARG APP_VERSION=latest
+ARG APP_NAME="NGEQM"
+
+LABEL io.k8s.description="${APP_NAME}" \
+      io.k8s.display-name="${APP_NAME}" \
+      io.openshift.tags="telenity" \
+      name="${APP_NAME}" \
+      summary="${APP_NAME}" \
+      description="${APP_NAME}" \
+      vendor="Telenity, Inc." \
+      maintainer="Telenity, Inc." \
+      version="${APP_VERSION}" \
+      release="${APP_VERSION}"
+
+ENV LANG=C.UTF-8
+
+FROM com.telenity.ngeqm.docker as dev
+
+
+USER root
+
+# Sistem güncellemeleri ve araç kurulumu
+RUN dnf update -y 
+RUN dnf makecache && dnf repolist
+
+# JAVA_HOME ve PATH ayarları
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-17.0.16.0.8-2.el9.x86_64
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# Docker CLI Kurulumu
+RUN dnf install -y dnf-plugins-core \
+    && dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo \
+    && dnf install -y docker-ce-cli
+
+# Docker CLI için auto completion
+RUN docker completion bash > /etc/bash_completion.d/docker.sh && \
+    echo "source /etc/bash_completion.d/docker.sh" >> /etc/bashrc
+
+# ==== kubectl (Kubernetes CLI) kurulumu ====
+RUN curl -LO "https://dl.k8s.io/release/$(curl -Ls -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/kubectl
+
+# ==== kubectl auto completion ====
+RUN kubectl completion bash > /etc/bash_completion.d/kubectl.sh && \
+    echo "source /etc/bash_completion.d/kubectl.sh" >> /etc/bashrc
+    
+# ==== Helm (Kubernetes Paket Yöneticisi) kurulumu ====
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+    && chmod 700 get_helm.sh \
+    && ./get_helm.sh \
+    && rm get_helm.sh
+
+# ==== HELM auto completion ====
+RUN helm completion bash > /etc/bash_completion.d/helm.sh && \
+    echo "source /etc/bash_completion.d/helm.sh" >> /etc/bashrc
+
+
+# ==== Genel yardımcı araçlar ====
+RUN dnf install -y which nano git procps-ng shadow-utils hostname
+
+# ==== Ağ ve test araçları ====
+RUN dnf install -y --allowerasing iputils nc net-tools curl wget
+
+
+# ==== Sıkıştırma ve arşivleme araçları ====
+RUN dnf install -y zip tar
+
+# ==== JSON/XML işleme araçları ====
+RUN dnf install -y jq xmlstarlet
+
+# ==== Python (ve pip) ====
+RUN dnf install -y python3 python3-pip
+
+# ==== Auto Completion ve Bash araçları ====
+RUN dnf install -y bash-completion
+
+
+# #==== Opsiyonel: dosya ağacı görüntüleme ====
+# RUN dnf install -y tree
+
+# diff-cover kurulumu
+RUN pip3 install diff-cover
+
+# ==== Maven (Java build aracı) ====
+RUN dnf install -y maven
+
+# ==== Spring CLI aracı ====
+WORKDIR /tmp/spring-cli
+RUN wget https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-cli/3.5.4/spring-boot-cli-3.5.4-bin.tar.gz -O springcli.tar.gz && \
+    tar -xvzf springcli.tar.gz && \
+    mv spring-3.5.4 /opt/spring && \
+    echo 'export PATH=/opt/spring/bin:$PATH' >> /etc/profile.d/spring.sh && \
+    source /etc/profile.d/spring.sh && \
+    rm -rf /tmp/spring-cli 
+
+
+# ==== Oracle JDK 17 Kurulumu =======================================================================================
+WORKDIR /tmp/jdk
+
+# Oracle JDK 17 RPM dosyasını indirip kur
+RUN curl -LO "https://download.oracle.com/java/17/archive/jdk-17.0.12_linux-x64_bin.rpm" && \
+    dnf install -y ./jdk-17.0.12_linux-x64_bin.rpm && \
+    rm -f ./jdk-17.0.12_linux-x64_bin.rpm
+
+# alternatives sistemiyle Oracle JDK 17'yi varsayılan hale getir
+RUN alternatives --install /usr/bin/java java /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/java 200000 && \
+    alternatives --install /usr/bin/javac javac /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/javac 200000 && \
+    alternatives --install /usr/bin/jcmd jcmd /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/jcmd 200000 && \
+    alternatives --install /usr/bin/jstack jstack /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/jstack 200000 && \
+    alternatives --install /usr/bin/jps jps /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/jps 200000 && \
+    alternatives --install /usr/bin/keytool keytool /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/keytool 200000 && \
+    alternatives --set java /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/java && \
+    alternatives --set javac /usr/lib/jvm/jdk-17.0.12-oracle-x64/bin/javac
+
+# JAVA_HOME ve PATH ayarları
+ENV JAVA_HOME=/usr/lib/jvm/jdk-17.0.12-oracle-x64
+ENV PATH=$JAVA_HOME/bin:$PATH
+# ==================================================================================================================
+
+
+
+# ==== Kabuk Ayarları ==============================================================================================
+# eza kurulumu (manuel çünkü package manager'da yok)
+RUN mkdir -p /tmp/eza/ && \
+    cd /tmp/eza && \
+    curl -LO "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz" && \
+    tar -xzf eza_x86_64-unknown-linux-gnu.tar.gz && \
+    install -m 755 eza /usr/local/bin/eza && \
+    rm -rf /tmp/eza
+
+# Git renkli çıktılar
+RUN git config --global color.ui auto && \
+    git config --global color.status auto && \
+    git config --global color.branch auto && \
+    git config --global color.interactive auto && \
+    git config --global color.diff auto
+
+# Shell alias'ları
+RUN echo "alias lg='eza -al --git --icons --group-directories-first'" >> /etc/bashrc && \
+    echo "alias ll='ls -la'" >> /etc/bashrc && \
+    echo "alias l='ls -l'" >> /etc/bashrc && \
+    echo "alias la='ls -la'" >> /etc/bashrc && \
+    echo "alias lla='ls -la'" >> /etc/bashrc && \
+    echo "alias ls='ls --color=auto'" >> /etc/bashrc && \
+    echo "alias cls='clear && clear'" >> /etc/bashrc
+# ==================================================================================================================
+
+
+WORKDIR /workspace
+
+ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]
