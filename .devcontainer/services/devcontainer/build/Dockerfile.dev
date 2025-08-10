@@ -89,7 +89,8 @@ RUN dnf install -y bash-completion
 
 
 # #==== Opsiyonel: dosya ağacı görüntüleme ====
-# RUN dnf install -y tree
+RUN wget https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/tree-1.8.0-10.el9.x86_64.rpm -O /tmp \
+    && rpm -ivh tree-*.rpm
 
 # diff-cover kurulumu
 RUN pip3 install diff-cover

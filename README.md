@@ -115,13 +115,6 @@ Her modül için ayrı ayrı `mvn spring-boot:run` gibi komutları çalıştıra
 ```sh
 cd /workspace/multi-module
 
-# sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
-#     <parent>\
-#         <groupId>org.springframework.boot</groupId>\
-#         <artifactId>spring-boot-starter-parent</artifactId>\
-#         <version>3.5.4</version>\
-#     </parent>' pom.xml
-
 sed -i '/<parent>/,/<\/parent>/d' maven-console-app/pom.xml
 sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
   <parent>\
@@ -425,8 +418,9 @@ java -jar spring-console-app/target/spring-console-app-0.0.1-SNAPSHOT.jar
 
 Şimdi *thin jar* olacak şekilde `maven-console-app` modülünü derleyelim:
 ```sh
-mvn clean compile
-mvn  jar:jar \
+mvn clean 
+mvn compile
+mvn jar:jar \
       -Djar.archive.manifest.addClasspath=true        \
       -Djar.archive.manifest.classpathPrefix=lib/     \
       -Djar.archive.manifest.mainClass=com.example.maven.console.App \
@@ -471,6 +465,56 @@ Tüm parametreleri pom.xml içinde belirterek komut satırını kısaltabiliriz:
   </build>
 ```
 
+
+```sh
+cat > maven-console-app/pom.xml << EOF
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>multi-module-parent</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+  <groupId>com.example.maven.console</groupId>
+  <artifactId>maven-console-app</artifactId>
+  <packaging>jar</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <name>maven-console-app</name>
+  <url>http://maven.apache.org</url>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.example.maven.console.App</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
+EOF
+```
 Komutun son hali:
 
 ```sh
@@ -511,11 +555,85 @@ mvn clean \
 </build>
 ```
 
+
+```sh
+cat > /workspace/multi-module/maven-console-app/pom.xml << EOF
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>multi-module-parent</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+  <groupId>com.example.maven.console</groupId>
+  <artifactId>maven-console-app</artifactId>
+  <packaging>jar</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <name>maven-console-app</name>
+  <url>http://maven.apache.org</url>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.8.1</version> <!-- Güncel sürümü kontrol edin -->
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase> <!-- package aşamasında çalışacak -->
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>\${project.build.directory}/lib</outputDirectory> <!-- Bağımlılıklar buraya kopyalanacak -->
+              <includeScope>runtime</includeScope> <!-- runtime scope'daki bağımlılıkları kopyalar -->
+              <!-- İsterseniz filtreleme yapabilirsiniz, örn.:
+              <excludeGroupIds>org.unwanted</excludeGroupIds> 
+              -->
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.example.maven.console.App</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
+EOF
+```
+
 Bağımlılıkları `target/lib` içinde olan `jar` dosyamızı koşturalım:
 ```sh
 java -cp "maven-console-app/target/classes:maven-console-app/target/dependency/*" com.example.maven.console.App
 
-jar -xf maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar META-INF/MANIFEST.MF && cat META-INF/MANIFEST.MF
+jar -xf maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar META-INF/MANIFEST.MF
+cat META-INF/MANIFEST.MF
 # veya jar dosyasının yolunu göstererek koşturabiliriz ancak manifest dosyasında main metodunun yeri olmak zorunda.
 #
 # maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar Dosyasından META-INF/MANIFEST.MF içeriği:
@@ -529,26 +647,464 @@ jar -xf maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar META-INF/MAN
 java -jar maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar
 ```
 
+`maven-console-app` Modülünü `fat jar` haline getirebiliriz. Bunun için en çok kullanılan yöntemlerden biri `maven-assembly-plugin` veya `maven-shade-plugin` kullanmaktır. Oluşan jar dosyasında tüm bağımlılıklar artifaktın içine ekleneceğinden classpath (`java -cp`) ile bağımlılıkları vermeye gerek kalmaz.
 
-Aşağıdaki komutla `fat jar` oluşturulup tüm bağımlılıklar artifaktın içine ekleneceğinden classpath (`java -cp`) ile bağımlılıkları vermeye gerek kalmaz. Eğer thin jar yani bağımlılıkları 
-```sh
-cd /workspace/multi-module
-mvn clean package dependency:copy-dependencies -pl spring-console-app  -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
-mvn clean package dependency:copy-dependencies -pl spring-web-app      -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+```xml
+<plugin>
+  <groupId>org.apache.maven.plugins</groupId>
+  <artifactId>maven-assembly-plugin</artifactId>
+  <version>3.1.1</version>
+  <configuration>
+    <descriptorRefs>
+      <descriptorRef>jar-with-dependencies</descriptorRef>
+    </descriptorRefs>
+    <archive>
+      <manifest>
+        <mainClass>com.example.maven.console.App</mainClass> <!-- Ana sınıfınızın tam yolu -->
+      </manifest>
+    </archive>
+  </configuration>
+  <executions>
+    <execution>
+      <id>make-assembly</id>
+      <phase>package</phase>
+      <goals>
+        <goal>single</goal>
+      </goals>
+    </execution>
+  </executions>
+</plugin>
 ```
 
-veya ana `pom.xml` dizininde tüm alt modüller için bir kerede yapabiliriz:
 ```sh
-cd /workspace/multi-module
-mvn clean package -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+cat > maven-console-app/pom.xml << EOF
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>multi-module-parent</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+  <groupId>com.example.maven.console</groupId>
+  <artifactId>maven-console-app</artifactId>
+  <packaging>jar</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <name>maven-console-app</name>
+  <url>http://maven.apache.org</url>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.8.1</version> <!-- Güncel sürümü kontrol edin -->
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase> <!-- package aşamasında çalışacak -->
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory> <!-- Bağımlılıklar buraya kopyalanacak -->
+              <includeScope>runtime</includeScope> <!-- runtime scope'daki bağımlılıkları kopyalar -->
+              <!-- İsterseniz filtreleme yapabilirsiniz, örn.:
+              <excludeGroupIds>org.unwanted</excludeGroupIds> 
+              -->
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.example.maven.console.App</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.1.1</version>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <archive>
+            <manifest>
+              <mainClass>com.example.maven.console.App</mainClass> <!-- Ana sınıfınızın tam yolu -->
+            </manifest>
+          </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+
+</project>
+EOF
 ```
 
-Yukarıdaki Ancak `mvn clean package -pl spring-console-app`
-mvn clean package dependency:copy-dependencies -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+```sh
+cd /workspace/multi-module
+mvn  -pl  maven-console-app       clean   package 
+java -jar maven-console-app/target/maven-console-app-1.0-SNAPSHOT-jar-with-dependencies.jar
+```
+
+### Birim Testler ve Kapsama Raporu
+
+#### Temel Test Komutları
+
+- Tüm testleri çalıştır
+  ```sh
+  mvn test
+  ```
+  Bu komut:
+  - Tüm test sınıflarını bulur (`*Test.java`, `Test*.java`, `*TestCase.java` pattern'lerini)
+  - *JUnit*, *TestNG* gibi test framework'lerini otomatik algılar
+  - `maven-surefire-plugin` ya da `failsafe-plugin` üzerinden testleri çalıştırır.
+  - Test sonuçlarını konsola yazdırır
+  - `target/surefire-reports/` klasöründe detaylı raporlar oluşturur
+
+- Maven `test-compile` ile tüm test sınıflarını derleyip edip `*.class` dosyalarını oluştur
+  ```sh
+  mvn clean test-compile
+  ```
+
+- Testleri temizleyip çalıştırır
+  ```sh
+  mvn clean test
+  ```
+
+- Tüm test sınıflarını listele
+  ```sh
+  find . -name "*Test.java" | xargs -I {} basename {} .java | sort
+  ```
+
+- Belirli bir test sınıfını çalıştır
+  ```sh
+  mvn test -Dtest=TestClassName
+  ```
+
+- Belirli bir test metodunu çalıştır
+  ```sh
+  mvn test -Dtest=TestClassName#testMethodName
+  ```
+
+- Wildcard ile test sınıflarını çalıştır
+  ```sh
+  mvn test -Dtest="*ServiceTest,User*Test,Order*Test"
+  ```
+
+- Birden fazla test sınıfını çalıştır
+  ```sh
+  mvn test -Dtest="UserServiceTest,OrderServiceTest"
+  ```
+
+#### Multi-Module Projede Test Komutları
+
+- Belirli bir modülde testleri çalıştır
+  ```sh
+  mvn test -pl spring-console-app
+  ```
+
+- Belirli modül ve bağımlılıklarında testleri çalıştır
+  ```sh
+  mvn test -pl spring-console-app -am
+  ```
+
+- Birden fazla modülde testleri çalıştır
+  ```sh
+  mvn test -pl spring-console-app,maven-console-app
+  ```
+
+- Test başarısızlıklarında durma
+  ```sh
+  mvn test -Dmaven.test.failure.ignore=true
+  ```
+
+- Paralel test çalıştırma
+  ```sh
+  mvn test -Dparallel=methods -DthreadCount=4
+  ```
+
+#### Test Raporları ve Detaylar
+
+Java ekosisteminde üretilebilecek başlıca rapor türleri:
+1. Test Execution Raporları
+
+    * Surefire Reports (Maven)
+    * Test Results (Gradle)
+    * JUnit HTML raporları
+    * TestNG raporları
+
+2. Code Coverage Raporları
+
+    * JaCoCo raporları
+    * Cobertura raporları
+    * Emma raporları
+
+3. Kod Kalite Raporları
+
+    * SonarQube raporları
+    * SpotBugs raporları
+    * PMD raporları
+    * Checkstyle raporları
+
+4. Performans Test Raporları
+
+    * JMeter raporları
+    * Gatling raporları
+
+Rapor üreteç olarak **Surefire** ve kapsama raporu için **Jacoco**'yu inceleyelim.
+
+##### surefire-report-plugin
 
 ```sh
-java -cp "spring-console-app/target/classes:spring-console-app/target/dependency/*" com.example.spring.console.ConsoleApp
-java -cp "spring-web-app/target/classes:spring-web-app/target/dependency/*" com.example.spring.web.WebAppApplication
+mvn help:describe -Dplugin=org.apache.maven.plugins:maven-surefire-report-plugin:3.5.3
+mvn help:describe -Dplugin=org.apache.maven.plugins:maven-surefire-report-plugin:3.5.3 -Ddetail=true
+```
+
+**surefire-report:report** ile birim testlerin başarılı veya başarısız tamamlandığına dair sonuçları raporlarda gösterilir.
+
+
+
+- Detaylı test çıktısı ile
+
+  ```sh
+  mvn  -pl maven-console-app   test   -Dsurefire.printSummary=true
+  ```
+  Etkileri:
+    * Sınıflar ve test sınıfları derlenir `*.class` dosyaları oluşturulur
+    * Testler koşar ve rapor dosyaları `*.txt` ve `*.xml` olacak şekilde üretilir
+  ```sh
+  [root@b8012209bf0b maven-console-app]# tree target/classes target/test-classes target/surefire-reports
+  target/classes
+  └── com
+      └── example
+          └── maven
+              └── console
+                  └── App.class
+  target/test-classes
+  └── com
+      └── example
+          └── maven
+              └── console
+                  └── AppTest.class
+  target/surefire-reports
+  ├── TEST-com.example.maven.console.AppTest.xml
+  └── com.example.maven.console.AppTest.txt
+
+  8 directories, 4 files
+  [root@b8012209bf0b maven-console-app]# cat target/surefire-reports/com.example.maven.console.AppTest.txt
+  -------------------------------------------------------------------------------
+  Test set: com.example.maven.console.AppTest
+  -------------------------------------------------------------------------------
+  Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.031 sec
+  ```
+
+- Sure Fire ile rapor oluşturma
+  ```sh
+  mvn    -pl maven-console-app    surefire-report:report
+  ```
+
+  HTML formatında testlerin raporu target/reports dizininde üretilecek:
+  ```sh
+  [root@b8012209bf0b target]# tree -L 1 reports/ --dirsfirst
+  reports/
+  ├── css
+  ├── fonts
+  ├── images
+  ├── img
+  ├── js
+  └── surefire.html
+  ```
+
+
+##### jacoco-maven-plugin
+
+```sh
+mvn help:describe -Dplugin=org.jacoco:jacoco-maven-plugin
+mvn help:describe -Dplugin=org.jacoco:jacoco-maven-plugin -Ddetail=true
+```
+**jacoco:prepare-agent**, testlerin çalışırken kapsama verisini toplayabilmesi için JVM’e bir *JaCoCo* ajanı ekleme işini yapar.
+Testler başlar ve JVM içindeki JaCoCo ajanı, hangi sınıfın hangi satırının çalıştığını “not alır”. Bu bilgileri `target/jacoco.exec` adında ikili (binary) bir dosyaya kaydeder. 
+
+**jacoco:report** ile birim testlerin Java kodlarının kapsama raporu (HTML, XML, CSV biçimlerinde) gösterilir.
+Rapor almak için ayrıca `jacoco:report` (tek modül) veya `jacoco:report-aggregate` (çok modüllü) hedefini çalıştırmak gerekir.
+
+```sh
+mvn -pl maven-console-app \
+  clean \
+  org.jacoco:jacoco-maven-plugin:0.8.13:prepare-agent \
+  test \
+  org.jacoco:jacoco-maven-plugin:0.8.13:report
+```
+
+Yukarıdaki komutta yapılacak işlerin sırası şöyledir: `clean → prepare-agent → test → report`
+
+**Bu zincir şunları yapar:**
+1. **clean** → - önceki koşulardan üretilen `target` dizinlerini temizler,
+1. **prepare-agent** → `argLine` içine `-javaagent` ekler, JaCoCo ölçüm cihazı olan `target/jacoco.exec`'i yaratıp izlemeye başlatır. `prepare-agent` çalışmadan test’i çalıştırırsan, JVM’e JaCoCo ajanı eklenmez. Bu durumda testler çalışır ama kapsama ölçülmez.
+1. **test** → Testler çalışır, JaCoCo `target/jacoco.exec` dosyasına kapsama verilerini yazar.
+1. **report** → `target/jacoco.exec`’ten HTML/XML raporlarını `target/site/jacoco/` içine üretir.
+
+
+```shell
+maven-console-app/target/
+├── classes
+│   └── ...
+├── generated-sources
+│   └── ...
+├── generated-test-sources
+│   └── ...
+├── jacoco.exec                 <----- jacoco:prepare-agent   Tarafından oluşturulur
+├── maven-status
+│   └── ...
+├── site                        <----- jacoco:report          Tarafından oluşturulur
+│   └── jacoco
+│       ├── com.example.maven.console
+│       ├── index.html
+│       ├── jacoco-resources
+│       ├── jacoco-sessions.html
+│       ├── jacoco.csv
+│       └── jacoco.xml
+├── surefire-reports
+│   └── ...
+└── test-classes
+    └── ...
+```
+
+Bu komut çalıştığında konsoldaki çıktılarını özetleyerek inceleyelim:
+```shell
+[root@b8012209bf0b multi-module]# mvn -pl maven-console-app \
+                                      clean \
+                                      org.jacoco:jacoco-maven-plugin:0.8.13:prepare-agent \
+                                      test \
+                                      org.jacoco:jacoco-maven-plugin:0.8.13:report
+...
+[INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ maven-console-app ---
+[INFO] Deleting /workspace/multi-module/maven-console-app/target
+[INFO] 
+[INFO] --- jacoco-maven-plugin:0.8.13:prepare-agent (default-cli) @ maven-console-app ---
+[INFO] argLine set to -javaagent:/root/.m2/repository/org/jacoco/org.jacoco.agent/0.8.13/org.jacoco.agent-0.8.13-runtime.jar=destfile=/workspace/multi-module/maven-console-app/target/jacoco.exec
+...
+[INFO] --- maven-compiler-plugin:3.11.0:compile (default-compile) @ maven-console-app ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 1 source file with javac [debug target 17] to target/classes
+... 
+[INFO] --- maven-compiler-plugin:3.11.0:testCompile (default-testCompile) @ maven-console-app ---
+[INFO] Changes detected - recompiling the module! :dependency
+[INFO] Compiling 1 source file with javac [debug target 17] to target/test-classes
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.12.4:test (default-test) @ maven-console-app ---
+[INFO] Surefire report directory: /workspace/multi-module/maven-console-app/target/surefire-reports
+
+-------------------------------------------------------
+ T E S T S
+-------------------------------------------------------
+Running com.example.maven.console.AppTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.02 sec
+
+Results :
+
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+
+[INFO] 
+[INFO] --- jacoco-maven-plugin:0.8.13:report (default-cli) @ maven-console-app ---
+[INFO] Loading execution data file /workspace/multi-module/maven-console-app/target/jacoco.exec
+[INFO] Analyzed bundle 'maven-console-app' with 1 classes
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  3.497 s
+[INFO] Finished at: 2025-08-10T21:07:53+03:00
+[INFO] ------------------------------------------------------------------------
+```
+
+* `[INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ maven-console-app ---`:
+  - önceki koşulardan üretilen `target` dizini temizlenir, 
+* `[INFO] --- jacoco-maven-plugin:0.8.13:prepare-agent (default-cli) @ maven-console-app ---`:
+  - jacoco ajanı yaratılır,
+* `[INFO] --- maven-compiler-plugin:3.11.0:compile (default-compile) @ maven-console-app ---`:
+  - `*.java` kodları derlenir
+* `[INFO] --- maven-compiler-plugin:3.11.0:testCompile (default-testCompile) @ maven-console-app ---`:
+  - birim test sınıfları derlenir
+* `[INFO] --- maven-surefire-plugin:2.12.4:test (default-test) @ maven-console-app ---`:
+  - birim testleri koşar
+  - birim test sonuçlarının `.txt` ve `.xml` olarak raporları oluşturulur,
+* `[INFO] --- jacoco-maven-plugin:0.8.13:report (default-cli) @ maven-console-app ---`:
+  - ve `surefire` eklentisi üzerinden kod kapsama raporu üretilir.
+
+
+Bu akışı `pom.xml` dosyasına yazmak için kullanacağımız maven hayat çevrimi aşamalarını bulalım.
+
+* `test` öncesinde `jacoco-agent` yaratmak için `jacoco:prepare-agent` golünü `initialize` aşamasında çalıştırıyoruz.
+* `test` sonrasında testlerin, kod kapsama raporunu oluşturmak için `jacoco:report` golünü `verify` aşamasında çalıştırıyoruz.
+* artık `mvn clean verify` aşamalarını çalıştıracağız ki `test` seviyesinin ötesine geçip `verify` aşamasında rapor üretebilelim.  
+
+Şimdi bu jacoco ile kapsam raporu üretmek için kullandığımız komutu, `maven-console-app/pom.xml` içine eklentiler üzerinden yazalım, daha sonra tüm modüllerde çalışmasını isteyeceğiz:
+
+```xml
+  <build>
+    <plugins>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.13</version>
+        <executions>
+          <!-- 1. Testten önce ajanı hazırla -->
+          <execution>
+            <id>prepare-agent</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+
+          <!-- 2. Test bittikten sonra raporu üret -->
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
 ```
 
 
