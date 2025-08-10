@@ -25,8 +25,17 @@ Komutlar & Açıklamaları:
 
 ```sh
 mkdir -p /workspace/multi-module && cd /workspace/multi-module
-spring  init  --build=maven  --dependencies=     --name=console-app  --package-name=com.example.console  console-app
-spring  init  --build=maven  --dependencies=web  --name=web-app      --package-name=com.example.web      web-app
+
+# spring-boot konsol & web uygulamaları
+spring  init  --build=maven  --dependencies=     --name=spring-console-app    --package-name=com.example.spring.console  spring-console-app
+spring  init  --build=maven  --dependencies=web  --name=spring-web-app        --package-name=com.example.spring.web      spring-web-app
+
+# düz konsol uygulaması
+mvn archetype:generate \
+  -DgroupId=com.example.maven.console \
+  -DartifactId=maven-console-app \
+  -DarchetypeArtifactId=maven-archetype-quickstart \
+  -DinteractiveMode=false
 
 cat >> pom.xml << EOF
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -41,8 +50,9 @@ cat >> pom.xml << EOF
     <packaging>pom</packaging>
 
     <modules>
-        <module>console-app</module>
-        <module>web-app</module>
+        <module>spring-console-app</module>
+        <module>spring-web-app</module>
+        <module>maven-console-app</module>
     </modules>
 
     <properties>
@@ -50,6 +60,7 @@ cat >> pom.xml << EOF
         <spring-boot.version>3.5.4</spring-boot.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencyManagement>
@@ -72,6 +83,15 @@ cat >> pom.xml << EOF
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>\${spring-boot.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.11.0</version>
+                    <configuration>
+                        <source>\${maven.compiler.source}</source>
+                        <target>\${maven.compiler.target}</target>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
@@ -80,7 +100,7 @@ cat >> pom.xml << EOF
 EOF
 ```
 
-Her modül için ayrı ayrı `mvn spring-boot:run` gibi komutları çalıştırabilmek için `-pl <modül artifactId>` bayrağıyla `mvn spring-boot:run -pl console-app`şeklinde koştururuz. Ama kök dizinde `mvn clean install` komutu gibi hem `console-app` hem `web-app` modülleri için çalıştırılabilsin diye çocuk modülleri ana modüle `<modules>...</modules>` etiketinin arasında yazmamız gerekiyor. Modüllerin `pom.xml` dosyasına da `<parent>...</parent>` etiketine ana modülün bilgilerini yazarak iki yönlü olacak şekilde ilişkiyi kurarız:
+Her modül için ayrı ayrı `mvn spring-boot:run` gibi komutları çalıştırabilmek için `-pl <modül artifactId>` bayrağıyla `mvn spring-boot:run -pl spring-console-app`şeklinde koştururuz. Ama kök dizinde `mvn clean install` komutu gibi hem `spring-console-app` hem `web-app` modülleri için çalıştırılabilsin diye çocuk modülleri ana modüle `<modules>...</modules>` etiketinin arasında yazmamız gerekiyor. Modüllerin `pom.xml` dosyasına da `<parent>...</parent>` etiketine ana modülün bilgilerini yazarak iki yönlü olacak şekilde ilişkiyi kurarız:
 
 ```xml
 <parent>
@@ -95,40 +115,57 @@ Her modül için ayrı ayrı `mvn spring-boot:run` gibi komutları çalıştıra
 ```sh
 cd /workspace/multi-module
 
-sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
-    <parent>\
-        <groupId>org.springframework.boot</groupId>\
-        <artifactId>spring-boot-starter-parent</artifactId>\
-        <version>3.5.4</version>\
-    </parent>' pom.xml
+# sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
+#     <parent>\
+#         <groupId>org.springframework.boot</groupId>\
+#         <artifactId>spring-boot-starter-parent</artifactId>\
+#         <version>3.5.4</version>\
+#     </parent>' pom.xml
 
-sed -i '/<parent>/,/<\/parent>/d' console-app/pom.xml
+sed -i '/<parent>/,/<\/parent>/d' maven-console-app/pom.xml
+sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
+  <parent>\
+      <groupId>com.example</groupId>\
+      <artifactId>multi-module-parent</artifactId>\
+      <version>1.0.0</version>\
+      <relativePath>../pom.xml</relativePath>\
+  </parent>' maven-console-app/pom.xml
+
+sed -i '/<parent>/,/<\/parent>/d' spring-console-app/pom.xml
 sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
     <parent>\
         <groupId>com.example</groupId>\
         <artifactId>multi-module-parent</artifactId>\
         <version>1.0.0</version>\
         <relativePath>../pom.xml</relativePath>\
-    </parent>' console-app/pom.xml
+    </parent>' spring-console-app/pom.xml
 
 
-sed -i '/<parent>/,/<\/parent>/d' web-app/pom.xml
+sed -i '/<parent>/,/<\/parent>/d' spring-web-app/pom.xml
 sed -i '/<modelVersion>4.0.0<\/modelVersion>/a\
     <parent>\
         <groupId>com.example</groupId>\
         <artifactId>multi-module-parent</artifactId>\
         <version>1.0.0</version>\
         <relativePath>../pom.xml</relativePath>\
-    </parent>' web-app/pom.xml
+    </parent>' spring-web-app/pom.xml
 ```
 
-`console-app` Uygulamasını paket üretmeden `spring-boot-maven-plugin` eklentisiyle koşturalım:
+`spring-console-app` Uygulamasını paket üretmeden `spring-boot-maven-plugin` eklentisiyle koşturalım:
 ```sh
-mvn clean package -pl console-app  spring-boot:run
-mvn clean package -pl web-app      spring-boot:run
+mvn -pl spring-console-app  clean package spring-boot:run
+mvn -pl spring-web-app      clean package spring-boot:run
+```
+
+
+Aynı şeyi `maven-console-app` uygulaması için paket üretmeden koşturamayız. Bu yüzden maven ile derleyip, `exec-maven-plugin` eklentisiyle üretilen `jar` dosyasını koşturalım:
+```sh
+mvn -pl maven-console-app   clean package exec:java -Dexec.mainClass=com.example.maven.console.App
 ```
 
 ### mvn Komutu
+
+Şimdi mvn komutuyla eklentileri nasıl çalıştırdığımızı inceleyelim. 
 
 ```sh
 mvn <plugin-prefix>:<goal>
@@ -145,9 +182,21 @@ mvn <plugin-group-id>:<plugin-artifact-id>[:<plugin-version>]:<goal>
 
 Eklentinin gollerini görmek için aşağıdaki komutlardan birini çalıştırabiliriz:
 ```sh
+mvn help:describe -Dplugin=exec
+
+# pom.xml içinde eklentiler tanımlıysa kısa adlarıyla da maven reposunda bulur ve yardımı görüntüleriz:
 mvn help:describe -Dplugin=spring-boot
+# Ancak pom.xml'de ilgili eklenti yoksa group adıyla eklentinin yardım belgelerine erişebiliriz:
 mvn help:describe -Dplugin=org.springframework.boot:spring-boot-maven-plugin
+
+# Özellikle bir sürüm numarasına ait sorgulama yapabiliriz:
+mvn help:describe -Dplugin=org.springframework.boot:spring-boot-maven-plugin:3.5.4
+# yahut sürüm numarası bayrak olarak verilebilir:
 mvn help:describe -Dplugin=org.springframework.boot:spring-boot-maven-plugin -DpluginVersion=3.5.4
+
+# Her eklenti için geçerli olmasa da, eklentinin goal'ü olarak help'i koşturmak da mümkün:
+mvn exec:help
+mvn exec:help -Ddetail=true 
 ``` 
 
  
@@ -199,38 +248,41 @@ mvn clean
 # Tüm modülleri yahut bulunduğu dizinin modülünün target dizinini siler, üretilmiş artifaktlar silinir. 
 mvn clean 
 # -pl <modül artifactId> ile belirli bir modülün artifaktlarını siler  
-mvn clean -pl console-app
+mvn clean -pl spring-console-app
 
-# Java 17 kullanarak console-app modülünden paket üretir
-mvn package -pl console-app -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+# Java 17 kullanarak spring-console-app modülünden paket üretir
+mvn package -pl spring-console-app -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
 
 # hem clean hem package aşamalarını tüm modüller için koşar
 mvn clean package -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
-# hem clean hem package aşamalarını console-app için koşar
-mvn clean package -pl console-app -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+# hem clean hem package aşamalarını spring-console-app için koşar
+mvn clean package -pl spring-console-app -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
 ```
 
-Bu anahtarları (`-Dmaven.compiler.source=17` ve `-Dmaven.compiler.target=17`) mvn komutu `pom.xml` dosyasında `<properties>...</properties>` etiketi içinde arar. Eğer bayrak olarak konsol komutuna verilmişse `properties` içindeki değerleri ezerek konsoldaki değerleri kullanılır.
+Bu aşamalarda kullanılacak bayrakları (`-Dmaven.compiler.source=17` ve `-Dmaven.compiler.target=17`) mvn komutu `pom.xml` dosyasında `<properties>...</properties>` etiketi içinde arar ve bulursa kullanır. Eğer bayrak olarak konsol komutuna verilmişse `properties` içindeki değerleri ezerek konsoldaki değerleri kullanılır.
 
 `pom.xml`:
 ```xml
 ...
     <properties>
-        <java.version>17</java.version>
-        <spring-boot.version>3.5.4</spring-boot.version>
+        ...
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        ...
     </properties>
 ...
 ```
 
-Maven dünyasında `exec-maven-plugin` dediğimiz eklenti, komut satırı işlerimizi yapmamızı sağlıyor. Burada “plugin”i tam sürümüyle, yani `3.1.0` ile çağırıyoruz, sonra `-Dexec.mainClass` parametresiyle hangi sınıfın `main` metodunu tetikleyeceğimizi belirtiyoruz, `-pl console-app` ile sadece o modül üzerinde işlem yap diyoruz ki gereksiz bütün projeyi sarmasın. 
+#### exec-maven-plugin
 
-```sh 
-mvn org.codehaus.mojo:exec-maven-plugin:3.1.0:java -Dexec.mainClass=com.example.console.ConsoleAppApplication -pl console-app
+Maven dünyasında `exec-maven-plugin` dediğimiz eklenti, komut satırı işlerimizi yapmamızı sağlıyor. Aşağıdaki komutta eklentiyi tam sürümüyle, yani `3.1.0` ile ve `java` goal'ünü çağırıyoruz, sonra `-Dexec.mainClass` parametresiyle hangi sınıfın `main` metodunu tetikleyeceğimizi belirtiyoruz, mvn komutuna `-pl maven-console-app` ile sadece o modül üzerinde işlem yap diyoruz ki bütün proje modüllerinde koşmasın komutumuzu. 
+
+```sh
+mvn -pl maven-console-app   package
+mvn -pl maven-console-app   org.codehaus.mojo:exec-maven-plugin:3.1.0:java -Dexec.mainClass=com.example.maven.console.App
 ```
 
-Şimdi işin numarası şu: Bu parametreleri ve plugin ayarlarını `pom.xml` dosyanıza yazarsanız, mesela plugin’in versiyonunu, çalıştırılacak sınıfı, hedef modülü, vs. orada tanımlarsanız, konsolda bu kadar uzun uzadıya komut yazmaya gerek kalmaz. Aşağıdaki `pom.xml` ile artık komutumuz `mvn exec:java -pl console-app` olur. Zaten `mainClass` tanımı `pom.xml` içinde olduğu için tekrar yazmana gerek kalmaz, hem kısalır hem de temiz görünür.
+Şimdi işin numarası şu: Bu parametreleri ve plugin ayarlarını `pom.xml` dosyanıza yazarsanız, mesela plugin’in versiyonunu, çalıştırılacak sınıfı, hedef modülü, vs. orada tanımlarsanız, konsolda bu kadar uzun uzadıya komut yazmaya gerek kalmaz. Aşağıdaki `pom.xml` ile artık komutumuz `mvn exec:java -pl maven-console-app` olur. Zaten `mainClass` tanımı `pom.xml` içinde olduğu için tekrar yazmana gerek kalmaz, hem kısalır hem de temiz görünür.
 
 ```xml
 <build>
@@ -240,14 +292,14 @@ mvn org.codehaus.mojo:exec-maven-plugin:3.1.0:java -Dexec.mainClass=com.example.
       <artifactId>exec-maven-plugin</artifactId>
       <version>3.1.0</version>
       <configuration>
-        <mainClass>com.example.console.ConsoleAppApplication</mainClass>
+        <mainClass>com.example.maven.console.App</mainClass>
       </configuration>
     </plugin>
   </plugins>
 </build>
 ```
 
-Bir örnek daha yapalım. 
+Bir örnek daha yapalım mı?
 
 **Örnek: Komut satırında yazı yazıp, dizin yaratmak**
 
@@ -261,14 +313,14 @@ mvn org.codehaus.mojo:exec-maven-plugin:3.1.0:exec -Dexec.executable=bash -Dexec
 mvn exec:exec -Dexec.executable=mkdir -Dexec.args="-p new_folder"
 ```
 
-Burada exec goal’ü çağrılıyor, `mkdir` komutu çalıştırılıyor ve `new_folder` isimli klasör oluşturuluyor.
+Burada `:exec` golünü çağrılıyor, `mkdir` komutu çalıştırılıyor ve `new_folder` isimli klasör oluşturuluyor.
 
-Şimdi bu komutlar console-app uygulamasında koşacağı için `console-app/pom.xml`'i güncelleyelim:
+Şimdi bu komutlar spring-console-app uygulamasında koşacağı için `spring-console-app/pom.xml`'i güncelleyelim:
 
 ```sh
-mvn exec:java@run-java-app          -pl console-app 
-mvn exec:exec@make-directory        -pl console-app 
-mvn exec:exec@complex-shell-command -pl console-app 
+mvn   -pl spring-console-app    exec:java@run-java-app          
+mvn   -pl spring-console-app    exec:exec@make-directory         
+mvn   -pl spring-console-app    exec:exec@complex-shell-command  
 ```
 
 `<build><plugins>` Etiketine `exec-maven-plugin` eklentisini ekleyelim:
@@ -284,7 +336,7 @@ mvn exec:exec@complex-shell-command -pl console-app
 </build>
 ```
 
-Aşağıdaki gibi `spring-boot-maven-plugin` eklentisinin altına `exec-maven-plugin` eklentisini yazalım:
+Aşağıdaki gibi `spring-boot-maven-plugin` eklentisinin altına `exec-maven-plugin` eklentisini `<build><plugins><plugin>....` etiketlerine yazalım:
 
 ```xml
 <build>
@@ -345,29 +397,144 @@ Aşağıdaki gibi `spring-boot-maven-plugin` eklentisinin altına `exec-maven-pl
 </build>
 ```
 
-`<build>....</build>` Etiketi, projenin nasıl derleneceğini, test edileceğini, paketleneceğini ve çalıştırılacağını belirten bölümdür.
-
-Pluginler ise bu “build sürecinde yapılacak özel işler” için kullanılan araçlar gibidir. Mesela derleme, test çalıştırma, paketleme, veya bizim örnekte olduğu gibi Java programı başlatma veya kabuk komutları çalıştırma… Bunların tamamı “build aşamasında çalışan adımlar”dır. Dolayısıyla pluginler doğrudan `<build><plugins><plugin>....`, şeklinde `build->plugins->plugin` etiketi altında tanımlanır ki Maven onları build sürecine entegre edebilsin.
-
+> `<build>....</build>` Etiketi, projenin nasıl derleneceğini, test edileceğini, paketleneceğini ve çalıştırılacağını belirten bölümdür.
+>
+> Pluginler ise bu “build sürecinde yapılacak özel işler” için kullanılan araçlar gibidir. Mesela derleme, test çalıştırma, paketleme, veya bizim örnekte olduğu gibi Java programı başlatma veya kabuk komutları çalıştırma… Bunların tamamı “build aşamasında çalışan adımlar”dır. Dolayısıyla pluginler doğrudan `<build><plugins><plugin>....`, şeklinde `build->plugins->plugin` etiketi altında tanımlanır ki Maven onları build sürecine entegre edebilsin.
 
 ### Derle ve Çalıştır
+
+Buraya kadar `exec-maven-plugin` eklentisinin `exec:java` ile ve `spring-boot` eklentisinin `:run` golüyle uygulamayı derleyip çalıştırdığı gördük (`mvn spring-boot:run`). Şimdi derleme ve çalıştır kısımlarını ayrı ayrı işletelim.
 
 Modülleri ayrı ayrı aşağıdaki komutlarla derleyip, paketleyebiliriz. 
 Aşağıdaki komutla `thin jar` oluşturulup tüm bağımlılıklar `target/lib` dizinine yazılır. Uygulamayı başlatmak için classpath (`java -cp`) ile bağımlılıkları vermek gerekir. 
 
+> **Fat jar** (ya da uber jar), uygulamanızın kodları ve tüm bağımlılıklarının bir arada tek bir jar dosyasında bulunduğu Java arşividir. Bu sayede uygulama, tüm kütüphanelerle birlikte tek dosya olarak çalıştırılabilir (java -jar ile) ve başka kütüphanelere ihtiyaç duymaz. Ancak fat jar dosyaları genellikle büyük olur çünkü içinde tüm bağımlılıklar vardır. Bu da aynı kütüphanelerin farklı projelerde tekrar paketlenmesine ve sürüm uyuşmazlıklarına yol açabilir.
+>
+> **Thin jar** ise sadece sadece uygulama kodunuzu ve onu çalıştırmak için gereken temel bilgileri içerir, bağımlılıkları içermez. Bağımlılıklar çalışma zamanında dışarıdan sağlanır veya yüklenir. Bu yüzden thin jar dosyası küçüktür ve bağımlılıklar bağımsız yönetilebilir. Thin jar'lar, container ortamlarında veya modüler yapılarda daha esnek kullanım sağlar.
+>
+> Maven ile fat jar genellikle `maven-shade-plugin` veya Spring Boot’un kendi paketleme özellikleriyle oluşturulur. Thin jar için ise Spring Boot Thin Launcher gibi araçlar kullanılır.
+>
+> Spring Boot’un *fat jar* yapısı, `java -jar` ile çalıştırılması için tasarlanmıştır. *Fat jar* kullanıyorsanız, çalıştırmak için mutlaka `java -jar` komutunu kullanın. Bu, Spring Boot’un özel *class loader* mekanizmasını devreye sokar.
+
+`spring-boot:repackage` ile *fat jar* oluşturalım ve `jar` dosyasından çalıştıralım. Ancak `:repackage` golünden önce derleme (`compile`), test (`test`) aşamalarını da geçecek paketleme (`package`) aşamasını koşmamız gerekiyor. Böylece paketlenecek `jar` çıktısı oluşsun: 
+
 ```sh
-
-java -cp "console-app/target/classes:console-app/target/dependency/*" com.example.console.ConsoleApp
-
-# veya jar dosyasının yolunu göstererek:
-java -jar console-app/target/console-app-1.0.0.jar
+mvn  -pl spring-console-app    clean   package   spring-boot:repackage
+java -jar spring-console-app/target/spring-console-app-0.0.1-SNAPSHOT.jar
 ```
-Eğer thin jar yani bağımlılıkları 
+
+Şimdi *thin jar* olacak şekilde `maven-console-app` modülünü derleyelim:
+```sh
+mvn clean compile
+mvn  jar:jar \
+      -Djar.archive.manifest.addClasspath=true        \
+      -Djar.archive.manifest.classpathPrefix=lib/     \
+      -Djar.archive.manifest.mainClass=com.example.maven.console.App \
+      -pl maven-console-app
+mvn dependency:copy-dependencies -DoutputDirectory=target/lib
+```
+
+Tek komutta:
+```sh
+mvn clean \
+    compile \
+    dependency:copy-dependencies \
+      -DoutputDirectory=target/lib \
+    org.apache.maven.plugins:maven-jar-plugin:3.3.0:jar \
+      -Djar.archive.manifest.mainClass=com.example.maven.console.App \
+      -Djar.archive.manifest.addClasspath=true \
+      -Djar.archive.manifest.classpathPrefix=lib/ \
+    -pl maven-console-app
+```
+
+Tüm parametreleri pom.xml içinde belirterek komut satırını kısaltabiliriz:
+
+`maven-console-app/pom.xml`:
+```xml
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.example.maven.console.App</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+```
+
+Komutun son hali:
+
+```sh
+mvn clean \
+    compile \
+    dependency:copy-dependencies \
+      -DoutputDirectory=target/lib \
+    jar:jar \
+    -pl maven-console-app
+```
+
+`dependency:copy-dependencies -DoutputDirectory=target/lib` için `maven-console-app/pom.xml` dosyasını tekrar yazalım:
+```xml
+<build>
+  <plugins>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-dependency-plugin</artifactId>
+      <version>3.8.1</version> <!-- Güncel sürümü kontrol edin -->
+      <executions>
+        <execution>
+          <id>copy-dependencies</id>
+          <phase>package</phase> <!-- package aşamasında çalışacak -->
+          <goals>
+            <goal>copy-dependencies</goal>
+          </goals>
+          <configuration>
+            <outputDirectory>${project.build.directory}/lib</outputDirectory> <!-- Bağımlılıklar buraya kopyalanacak -->
+            <includeScope>runtime</includeScope> <!-- runtime scope'daki bağımlılıkları kopyalar -->
+            <!-- İsterseniz filtreleme yapabilirsiniz, örn.:
+            <excludeGroupIds>org.unwanted</excludeGroupIds> 
+            -->
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
+</build>
+```
+
+Bağımlılıkları `target/lib` içinde olan `jar` dosyamızı koşturalım:
+```sh
+java -cp "maven-console-app/target/classes:maven-console-app/target/dependency/*" com.example.maven.console.App
+
+jar -xf maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar META-INF/MANIFEST.MF && cat META-INF/MANIFEST.MF
+# veya jar dosyasının yolunu göstererek koşturabiliriz ancak manifest dosyasında main metodunun yeri olmak zorunda.
+#
+# maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar Dosyasından META-INF/MANIFEST.MF içeriği:
+#
+# Manifest-Version: 1.0
+# Created-By: Maven JAR Plugin 3.3.0
+# Build-Jdk-Spec: 17
+# Main-Class: com.example.maven.console.App
+
+# Artık MANIFEST.MF içinde Main-Class olduğu için doğrudan jar dosyasını çalıştırabiliriz:
+java -jar maven-console-app/target/maven-console-app-1.0-SNAPSHOT.jar
+```
+
+
 Aşağıdaki komutla `fat jar` oluşturulup tüm bağımlılıklar artifaktın içine ekleneceğinden classpath (`java -cp`) ile bağımlılıkları vermeye gerek kalmaz. Eğer thin jar yani bağımlılıkları 
 ```sh
 cd /workspace/multi-module
-mvn clean package dependency:copy-dependencies -pl console-app  -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
-mvn clean package dependency:copy-dependencies -pl web-app      -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+mvn clean package dependency:copy-dependencies -pl spring-console-app  -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
+mvn clean package dependency:copy-dependencies -pl spring-web-app      -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
 ```
 
 veya ana `pom.xml` dizininde tüm alt modüller için bir kerede yapabiliriz:
@@ -376,12 +543,12 @@ cd /workspace/multi-module
 mvn clean package -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
 ```
 
-Yukarıdaki Ancak `mvn clean package -pl console-app`
+Yukarıdaki Ancak `mvn clean package -pl spring-console-app`
 mvn clean package dependency:copy-dependencies -Dmaven.compiler.source=17 -Dmaven.compiler.target=17
 
 ```sh
-java -cp "console-app/target/classes:console-app/target/dependency/*" com.example.console.ConsoleApp
-java -cp "web-app/target/classes:web-app/target/dependency/*" com.example.web.WebAppApplication
+java -cp "spring-console-app/target/classes:spring-console-app/target/dependency/*" com.example.spring.console.ConsoleApp
+java -cp "spring-web-app/target/classes:spring-web-app/target/dependency/*" com.example.spring.web.WebAppApplication
 ```
 
 
